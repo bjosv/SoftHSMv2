@@ -1,0 +1,86 @@
+name: CI
+
+on: [push, pull_request]
+
+jobs:
+  # linux:
+  #   name: Linux (${{ matrix.backend }})
+  #   runs-on: ubuntu-22.04
+  #   strategy:
+  #     fail-fast: false
+  #     matrix:
+  #       include:
+  #         - backend: openssl
+  #           flags: --with-crypto-backend=openssl
+  #         - backend: botan
+  #           flags: --with-crypto-backend=botan
+  #   steps:
+  #     - uses: actions/checkout@v3
+  #     - name: Prepare
+  #       run: |
+  #         sudo apt update -qq
+  #         sudo apt install libcppunit-dev libbotan-2-dev p11-kit
+  #     - name: Build
+  #       run: |
+  #         ./autogen.sh
+  #         ./configure ${{ matrix.flags }}
+  #         make
+  #     - name: Test
+  #       run: |
+  #         make check || cat src/lib/crypto/test/test-suite.log && false
+
+  linux:
+    name: Linux with sanitizer (${{ matrix.backend }})
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - backend: openssl
+            flags: --with-crypto-backend=openssl
+          - backend: botan
+            flags: --with-crypto-backend=botan
+    steps:
+      - uses: actions/checkout@v3
+      - name: Prepare
+        run: |
+          sudo apt update -qq
+          sudo apt install libcppunit-dev libbotan-2-dev p11-kit
+      - name: Build
+        env:
+          CFLAGS: -g -fsanitize=address -fno-sanitize-recover=all -fno-omit-frame-pointer
+          CXXFLAGS: -g -fsanitize=address -fno-sanitize-recover=all -fno-omit-frame-pointer
+        run: |
+          ./autogen.sh
+          ./configure ${{ matrix.flags }}
+          make
+      - name: Test
+        run: |
+          make check || cat src/lib/crypto/test/test-suite.log && false
+
+#   windows:
+#     name: Windows (${{ matrix.arch }})
+#     runs-on: windows-2022
+#     strategy:
+#       fail-fast: false
+#       matrix:
+# #        arch: [x64, x86]
+#         include:
+#           - arch: x64
+#             backend: openssl
+#     steps:
+#       - uses: ilammy/msvc-dev-cmd@v1
+#         with:
+#           arch: ${{ matrix.arch }}
+#       - uses: actions/checkout@v3
+#       - name: Prepare
+#         run: |
+#           vcpkg install openssl-windows:${{ matrix.arch }}-windows
+#           vcpkg install botan:${{ matrix.arch }}-windows
+#           vcpkg install cppunit:${{ matrix.arch }}-windows
+#       - name: Build
+#         run: |
+#           mkdir build
+#           cmake -B build -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake \
+#             -DWITH_OBJECTSTORE_BACKEND_DB=OFF -DWITH_CRYPTO_BACKEND=${{ matrix.backend }} \
+#             -DBUILD_TESTS=ON -DDISABLE_NON_PAGED_MEMORY=ON -DENABLE_GOST=OFF
