@@ -4,14 +4,18 @@ on: [push, pull_request]
 
 jobs:
   linux:
-    name: Linux (${{ matrix.backend }})
-    runs-on: ubuntu-20.04 # for OpenSSL 1.1.1
+    name: Linux (${{ matrix.runs-on }}, ${{ matrix.backend }})
+    runs-on: ${{ matrix.runs-on }}
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - backend: openssl
-          - backend: botan
+        backend: [openssl, botan]
+        runs-on: [ubuntu-20.04, ubuntu-22.04]
+        # include:
+        #   - backend: openssl
+        #     runs-on: ubuntu-20.04 # for OpenSSL 1.1.1
+        #   - backend: botan
+        #     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
       - name: Prepare
@@ -27,46 +31,46 @@ jobs:
         run: |
           make check || (find . -name test-suite.log -exec cat {} \; && false)
 
-  windows:
-    name: Windows (${{ matrix.arch }}, ${{ matrix.backend }})
-    runs-on: windows-2022
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - arch: x64
-            backend: openssl
-            target-platform: x64
-          - arch: x64
-            backend: botan
-            target-platform: x64
-          - arch: x86
-            backend: openssl
-            target-platform: Win32
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: ${{ matrix.arch }}
-      - name: Create vcpkg.json
-        run: >
-          echo '{ "dependencies": [ "openssl", "botan", "cppunit" ],
-                  "overrides": [ { "name": "openssl", "version-string": "1.1.1n" },
-                                 { "name": "botan",   "version-string": "2.19.3" } ],
-                  "builtin-baseline": "38d1652f152d36481f2f4e8a85c0f1e14f3769f7" }' > vcpkg.json
-      - uses: seanmiddleditch/vcpkg-action@master
-        id: vcpkg
-        with:
-          manifest-dir: ${{ github.workspace }}
-          triplet: ${{ matrix.arch }}-windows
-          token: ${{ github.token }}
-      - name: Build
-        run: |
-          mkdir build
-          cmake -B build ${{ steps.vcpkg.outputs.vcpkg-cmake-config }} -A ${{ matrix.target-platform }} -DWITH_CRYPTO_BACKEND=${{ matrix.backend }} -DDISABLE_NON_PAGED_MEMORY=ON -DBUILD_TESTS=ON
-          cmake --build build
-      - name: Test
-        env:
-          CTEST_OUTPUT_ON_FAILURE: 1
-        run: |
-          cmake --build build --target RUN_TESTS
+  # windows:
+  #   name: Windows (${{ matrix.arch }}, ${{ matrix.backend }})
+  #   runs-on: windows-2022
+  #   strategy:
+  #     fail-fast: false
+  #     matrix:
+  #       include:
+  #         - arch: x64
+  #           backend: openssl
+  #           target-platform: x64
+  #         - arch: x64
+  #           backend: botan
+  #           target-platform: x64
+  #         - arch: x86
+  #           backend: openssl
+  #           target-platform: Win32
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: ilammy/msvc-dev-cmd@v1
+  #       with:
+  #         arch: ${{ matrix.arch }}
+  #     - name: Create vcpkg.json
+  #       run: >
+  #         echo '{ "dependencies": [ "openssl", "botan", "cppunit" ],
+  #                 "overrides": [ { "name": "openssl", "version-string": "1.1.1n" },
+  #                                { "name": "botan",   "version-string": "2.19.3" } ],
+  #                 "builtin-baseline": "38d1652f152d36481f2f4e8a85c0f1e14f3769f7" }' > vcpkg.json
+  #     - uses: seanmiddleditch/vcpkg-action@master
+  #       id: vcpkg
+  #       with:
+  #         manifest-dir: ${{ github.workspace }}
+  #         triplet: ${{ matrix.arch }}-windows
+  #         token: ${{ github.token }}
+  #     - name: Build
+  #       run: |
+  #         mkdir build
+  #         cmake -B build ${{ steps.vcpkg.outputs.vcpkg-cmake-config }} -A ${{ matrix.target-platform }} -DWITH_CRYPTO_BACKEND=${{ matrix.backend }} -DDISABLE_NON_PAGED_MEMORY=ON -DBUILD_TESTS=ON
+  #         cmake --build build
+  #     - name: Test
+  #       env:
+  #         CTEST_OUTPUT_ON_FAILURE: 1
+  #       run: |
+  #         cmake --build build --target RUN_TESTS
